@@ -162,6 +162,11 @@ with tab_test:
             bar.empty()
     if "inj_df" in st.session_state:
         df = st.session_state.inj_df
+        errors = df[df.status == "error"]
+        if not errors.empty:
+            st.error(f"{len(errors)} of {len(df)} runs got no answer from the model (API error), so they say nothing "
+                     f"about the defence. Check the provider and API key in the sidebar.\n\n"
+                     f"Error: {errors.iloc[0].message[:300]}", icon=":material/cloud_off:")
         summ = inject.summary_table(df)
         cols = st.columns(len(summ))
         for col, (_, row) in zip(cols, summ.iterrows()):
@@ -172,7 +177,7 @@ with tab_test:
                                f"{int(row.flagged)} flagged as injection")
         st.dataframe(df[["version", "type", "defended", "status", "injection_detected", "markers_hit", "summary"]],
                      hide_index=True, column_config={"defended": st.column_config.CheckboxColumn("defended")})
-        failed = df[~df.defended]
+        failed = df[~df.defended & (df.status != "error")]
         if failed.empty:
             st.success("Every planted attack was defended.", icon=":material/verified_user:")
         for _, r in failed.iterrows():

@@ -66,7 +66,7 @@ def score(case: dict, res: pipeline.Result) -> dict:
         "version": res.version, "model": res.model, "status": res.status, "passed": passed,
         "reason": reason, "markers_hit": ", ".join(hit), "key_fact_coverage": round(coverage, 2),
         "injection_detected": res.injection_detected, "calls": res.calls, "latency_s": res.latency_s,
-        "summary": res.summary, "notes": res.injection_notes,
+        "summary": res.summary, "notes": res.injection_notes, "message": res.message,
     }
 
 
