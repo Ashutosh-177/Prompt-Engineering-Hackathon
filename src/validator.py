@@ -23,6 +23,7 @@ REFUSAL = re.compile(
 URL = re.compile(r"(https?://\S+|www\.\S+|\b[\w-]+\.(?:example|com|net|org|io|xyz|in)(?:/\S*)?)", re.I)
 SENT_SPLIT = re.compile(r"(?<=[.!?])\s+")
 MIN_SUMMARY_WORDS = 12
+CODE_TOKEN = re.compile(r"\b[A-Z][A-Z0-9]*(?:[-_][A-Z0-9]+)*[-_][A-Z0-9]*\d[A-Z0-9]*\b")
 QUOTED = re.compile(r"['\"‘“][^'\"’”]{4,}['\"’”]")
 GENERIC_NOTES = "The document contained embedded instructions aimed at the AI; they were ignored and are not repeated here."
 
@@ -91,6 +92,15 @@ def post_check(summary: str, notes: str, flagged_sentences: list[str]) -> tuple[
     notes, leaked_n = _strip_secret(notes)
     if leaked or leaked_n:
         issues.append(Issue("hard", "Output contained the confidential system tag - sentence redacted"))
+
+    # Code-like tokens (e.g. TOKEN-ZW-808) that come from injected sentences must never reach the user.
+    for code in {c for s in flagged_sentences for c in CODE_TOKEN.findall(s)}:
+        if code.lower() in summary.lower():
+            summary = " ".join(s for s in SENT_SPLIT.split(summary) if code.lower() not in s.lower()).strip()
+            issues.append(Issue("hard", "Removed a summary sentence containing a code token from an injected instruction"))
+        if code.lower() in notes.lower():
+            notes = GENERIC_NOTES
+            issues.append(Issue("hard", "Injection notes contained a code token from the injection - replaced"))
 
     injected_text = " ".join(flagged_sentences).lower()
     for url in set(URL.findall(summary)):
