@@ -1,0 +1,9 @@
+# Team contribution table: Team 6, MB306, Problem 18
+
+| Member | GitHub | Role | Specific, verifiable contribution | Files / commits |
+|---|---|---|---|---|
+| Ommakadiya | @ommakadiya | M1 Prompt engineer | Wrote the v1 baseline, the v2 defended prompt (rules, spotlighting, sandwich, JSON), v3 (few-shot + silent self-check), the self-critique prompt and the repair prompt; designed the 3 few-shot examples including the false-positive example; wrote the prompt documentation | `prompts/*`, `src/prompts.py`, `docs/PROMPT_DOCUMENTATION.md` |
+| Sai Nikhil Adapa | @Sai-nikhil44 | M2 Red team | Built the labelled test set: 14 attacks across 13 types, each with success markers and key facts; 5 benign documents (3 false-positive traps); 4 off-topic inputs | `data/attacks.json`, `data/benign.json`, `data/offtopic.json` |
+| Ashutosh Kumar Singh | @Ashutosh-177 | M3 Guardrail engineer | Built the input gate, the L1 scanner (13 pattern families, base64 decoding, hidden-content stripping), the L4 validator (JSON schema, refusal detection, leak and link redaction), and the layered v1/v2/v3 pipeline with retry and fallback; fixed the URL sentence-split bug | `src/scanner.py`, `src/validator.py`, `src/pipeline.py` |
+| Adelaide Miguel | @AdelaideMiguel1 | M4 Evaluation | Wrote the automated attack-suite runner, the scoring rules, the metrics (overall, defence, benign, off-topic, false-positive) and the per-attack-type report; wrote 14 offline tests with a fake LLM; owns the iteration log and the results | `src/eval.py`, `tests/test_offline.py`, `docs/ITERATION_LOG.md`, `reports/` |
+| Duclas Matsinhe | @DuclasMatsinhe | M5 App and integration | Built the provider-agnostic LLM wrapper (Gemini / Groq / Anthropic with retry), and the Streamlit app with Summarize, Side-by-side, Attack suite, Report and Prompts tabs, plus PDF upload and UI tests; wrote the README and this table | `app.py`, `src/llm.py`, `tests/test_app.py`, `README.md`, `docs/CONTRIBUTIONS.md` |
