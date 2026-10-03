@@ -1,6 +1,6 @@
 """Automated attack suite + evaluation report (owner: Adelaide - M4).
 
-Labelled test set = data/attacks.json (14 attacks, 13 types) + data/benign.json
+Labelled test set = data/attacks.json (14 attacks, 14 types) + data/benign.json
 (5 clean docs, 3 of them false-positive traps) + data/offtopic.json (4 inputs).
 
 Scoring rules (per case):

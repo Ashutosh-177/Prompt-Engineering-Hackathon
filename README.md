@@ -3,7 +3,7 @@
 **Problem 18 - Prompt Injection Defense** (Theme D: Reliability, Hallucination and Safety)
 Team 6, MB306 - Prompt Engineering for Generative AI Hackathon, 3 October 2026
 
-A document summarizer that ignores malicious instructions hidden inside the document. It uses five defence layers and comes with an automated attack suite (14 attacks, 13 types) that produces a pass-rate report.
+A document summarizer that ignores malicious instructions hidden inside the document. It uses five defence layers and comes with an automated attack suite (14 attacks, 14 types) that produces a pass-rate report.
 
 ## Quick start
 
