@@ -1,0 +1,7 @@
+streamlit>=1.57
+requests>=2.31
+python-dotenv>=1.0
+pandas>=2.0
+pypdf>=4.0
+pytest>=8.0
+tabulate>=0.9
