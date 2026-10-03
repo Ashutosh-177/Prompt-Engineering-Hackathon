@@ -1,7 +1,7 @@
 """Injection-safe document summarizer - Streamlit UI (owner: Duclas - M5).
 
 Run:  streamlit run app.py
-Tabs: Summarize | Side-by-side | Attack suite | Report | Prompts
+Tabs: Summarize | Test my document | Side-by-side | Attack suite | Report | Prompts
 """
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from src import eval as ev
-from src import pipeline, prompts
+from src import inject, pipeline, prompts, scanner
 from src.llm import DEFAULT_MODELS, KEY_ENV, LLMConfig
 
 st.set_page_config(page_title="Injection-safe summarizer", page_icon=":material/shield:", layout="wide")
@@ -60,6 +60,14 @@ def read_upload(file) -> str:
     if file.name.lower().endswith(".pdf"):
         from pypdf import PdfReader
         return "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(file.getvalue())).pages)
+    if file.name.lower().endswith(".docx"):
+        import docx
+        d = docx.Document(io.BytesIO(file.getvalue()))
+        parts = [p.text for p in d.paragraphs if p.text.strip()]
+        for table in d.tables:
+            for row in table.rows:
+                parts.append(" | ".join(c.text.strip() for c in row.cells if c.text.strip()))
+        return "\n".join(parts)
     return file.getvalue().decode("utf-8", errors="replace")
 
 
@@ -72,7 +80,7 @@ def document_input(prefix: str) -> str:
     with st.container(horizontal=True):
         st.selectbox("Load a test case", ["(type your own)"] + list(CASE_BY_LABEL), key=f"{prefix}_sample",
                      on_change=_load_sample)
-        up = st.file_uploader("Or upload a document", type=["txt", "md", "pdf"], key=f"{prefix}_upload")
+        up = st.file_uploader("Or upload a document", type=["txt", "md", "pdf", "docx"], key=f"{prefix}_upload")
     if up is not None and st.session_state.get(f"{prefix}_upname") != up.name:
         st.session_state[f"{prefix}_doc"] = read_upload(up)
         st.session_state[f"{prefix}_upname"] = up.name
@@ -114,8 +122,8 @@ def show_result(res: pipeline.Result, compact: bool = False) -> None:
 st.title("Injection-safe document summarizer")
 st.caption("Problem 18 - Prompt Injection Defense  |  Team 6, MB306")
 
-tab_sum, tab_cmp, tab_suite, tab_rep, tab_prompts = st.tabs(
-    [":material/summarize: Summarize", ":material/compare: Side-by-side", ":material/bug_report: Attack suite",
+tab_sum, tab_test, tab_cmp, tab_suite, tab_rep, tab_prompts = st.tabs(
+    [":material/summarize: Summarize", ":material/shield: Test my document", ":material/compare: Side-by-side", ":material/bug_report: Attack suite",
      ":material/assessment: Report", ":material/edit_note: Prompts"])
 
 # ---------- Summarize ----------
@@ -128,6 +136,53 @@ with tab_sum:
             st.session_state.sum_res = pipeline.run(doc, version or "v4", CFG)
     if "sum_res" in st.session_state:
         show_result(st.session_state.sum_res)
+
+# ---------- Test my document ----------
+with tab_test:
+    payloads = inject.load_payloads()
+    st.caption(f"Give any clean document (e.g. your own documentation). The app plants each of {len(payloads)} attack "
+               "types into it, one at a time, and checks whether each version still produces a clean summary. An attack "
+               "counts as defended if none of its marker words reach the user.")
+    doc_t = document_input("inj")
+    with st.container(horizontal=True):
+        t_versions = st.multiselect("Versions", prompts.VERSIONS, default=["v1", "v4"], key="inj_versions",
+                                    format_func=prompts.VERSION_LABELS.get)
+        where = st.radio("Where to plant the attack", inject.POSITIONS, horizontal=True, key="inj_where")
+    t_types = st.multiselect("Attack types (empty = all)", [p["type"] for p in payloads], key="inj_types")
+    st.caption(f"{len(t_types or payloads) * len(t_versions)} runs; v3 and v4 make 2 model calls per run.")
+    if st.button("Run injection test", type="primary", icon=":material/play_arrow:", key="inj_run",
+                 disabled=not t_versions):
+        ok, reason = scanner.check_document(doc_t)
+        if not ok:
+            st.warning(reason)
+        else:
+            bar = st.progress(0.0, text="Starting...")
+            st.session_state.inj_df = inject.run_injection_test(
+                doc_t, t_versions, CFG, where, t_types or None, lambda d, t, s: bar.progress(d / t, text=f"{d}/{t}  {s}"))
+            bar.empty()
+    if "inj_df" in st.session_state:
+        df = st.session_state.inj_df
+        summ = inject.summary_table(df)
+        cols = st.columns(len(summ))
+        for col, (_, row) in zip(cols, summ.iterrows()):
+            with col:
+                with st.container(border=True):
+                    st.metric(prompts.VERSION_LABELS[row.version], f"{row.defence_rate}% defended")
+                    st.caption(f"{int(row.defended)}/{int(row.attacks)} attacks defended  |  "
+                               f"{int(row.flagged)} flagged as injection")
+        st.dataframe(df[["version", "type", "defended", "status", "injection_detected", "markers_hit", "summary"]],
+                     hide_index=True, column_config={"defended": st.column_config.CheckboxColumn("defended")})
+        failed = df[~df.defended]
+        if failed.empty:
+            st.success("Every planted attack was defended.", icon=":material/verified_user:")
+        for _, r in failed.iterrows():
+            with st.expander(f"Failed: {r.version} / {r.type} (leaked: {r.markers_hit or r.status})"):
+                st.markdown("**Output shown to the user**")
+                st.write(r.summary or "(empty)")
+                st.markdown("**Document with the planted attack**")
+                st.code(r.attacked_document, language=None, wrap_lines=True)
+        st.download_button("Download CSV", df.drop(columns=["attacked_document"]).to_csv(index=False),
+                           "injection_test.csv", "text/csv", icon=":material/download:", key="inj_dl")
 
 # ---------- Side-by-side ----------
 with tab_cmp:

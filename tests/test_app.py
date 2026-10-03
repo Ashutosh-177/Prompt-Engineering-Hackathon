@@ -15,7 +15,7 @@ def _fake_post(url, headers, body):
 def test_app_loads_without_errors():
     at = AppTest.from_file("../app.py", default_timeout=30).run()
     assert not at.exception
-    assert len(at.tabs) == 5
+    assert len(at.tabs) == 6
 
 
 def test_offtopic_input_is_rejected_in_ui():
@@ -53,3 +53,17 @@ def test_side_by_side_and_suite_with_mocked_provider(monkeypatch, tmp_path):
     next(b for b in at.button if b.label == "Run attack suite").click().run()
     assert not at.exception
     assert any("Report saved" in s.value for s in at.success)
+
+
+def test_injection_test_tab_with_mocked_provider(monkeypatch):
+    monkeypatch.setenv("GEMINI_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_PROVIDER", "gemini")
+    monkeypatch.setattr(llm, "_post", _fake_post)
+    at = AppTest.from_file("../app.py", default_timeout=60).run()
+    at.text_area(key="inj_doc").input("SolarGrid India commissioned a 250 MW solar park near Bhuj in Kutch, the largest "
+                                      "single-site project in the company's history. The plant will supply power to "
+                                      "around 1.8 lakh homes and cut 4 lakh tonnes of emissions every year.")
+    at.multiselect(key="inj_types").set_value(["direct_override", "output_hijack"]).run()
+    at.button(key="inj_run").click().run()
+    assert not at.exception
+    assert any("defended" in m.value for m in at.metric)
