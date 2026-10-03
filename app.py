@@ -12,7 +12,7 @@ import pandas as pd
 import streamlit as st
 
 from src import eval as ev
-from src import inject, pipeline, prompts, scanner
+from src import inject, pipeline, prompts, scanner, ui
 from src.llm import DEFAULT_MODELS, KEY_ENV, LLMConfig
 
 st.set_page_config(page_title="Injection-safe summarizer", page_icon=":material/shield:", layout="wide")
@@ -88,7 +88,7 @@ def document_input(prefix: str) -> str:
                         placeholder="Paste any document here - including one with hidden instructions.")
 
 
-def show_result(res: pipeline.Result, compact: bool = False) -> None:
+def show_result(res: pipeline.Result) -> None:
     STATUS_STYLE.get(res.status, st.info)(f"**{pipeline.STATUS_TEXT.get(res.status, res.status)}**"
                                           + (f" - {res.message}" if res.message and res.status != "ok" else ""))
     if res.summary:
@@ -106,7 +106,9 @@ def show_result(res: pipeline.Result, compact: bool = False) -> None:
                    f"Model calls: {res.calls}  |  Latency: {res.latency_s}s  |  {res.model}")
     else:
         st.caption(f"Model calls: {res.calls}  |  Latency: {res.latency_s}s  |  {res.model}")
-    with st.expander("Defence trace", expanded=not compact):
+    if res.trace:
+        ui.trace_chips(res.trace)
+    with st.expander("Defence trace details", expanded=False):
         st.dataframe(pd.DataFrame(res.trace), hide_index=True)
         if res.scan and res.scan.findings:
             st.markdown("**Scanner findings**")
@@ -119,8 +121,8 @@ def show_result(res: pipeline.Result, compact: bool = False) -> None:
             st.code(r or "(empty)", language="json" if r.strip().startswith("{") else None)
 
 
-st.title("Injection-safe document summarizer")
-st.caption("Problem 18 - Prompt Injection Defense  |  Team 6, MB306")
+ui.hero(n_attacks=sum(c["kind"] == "attack" for c in CASES),
+        n_types=len({c["type"] for c in CASES if c["kind"] == "attack"}), n_cases=len(CASES))
 
 tab_sum, tab_test, tab_cmp, tab_suite, tab_rep, tab_prompts = st.tabs(
     [":material/summarize: Summarize", ":material/shield: Test my document", ":material/compare: Side-by-side", ":material/bug_report: Attack suite",
@@ -220,10 +222,10 @@ with tab_cmp:
         c1, c2 = st.columns(2)
         with c1:
             st.subheader(f"{a.version} - {a.model}")
-            show_result(a, compact=True)
+            show_result(a)
         with c2:
             st.subheader(f"{b.version} - {b.model}")
-            show_result(b, compact=True)
+            show_result(b)
 
 # ---------- Attack suite ----------
 with tab_suite:
